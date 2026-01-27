@@ -130,6 +130,8 @@ app.MapPost("/", async (HttpContext context) =>
                             {
                                 Console.WriteLine($"Error enviando mensaje de bienvenida: {ex.Message}");
                             }
+                        } else{
+                            Console.WriteLine($"Usuario no es la primera vez que escribe: {waId}");
                         }
                     }
                 }
