@@ -100,14 +100,13 @@ app.MapPost("/", async (HttpContext context) =>
                                 insertCmd.ExecuteNonQuery();
                             }
                         }
+                        var httpClient = new HttpClient();
+                        var url = "https://graph.facebook.com/v23.0/976270252240458/messages";
+                        var token = "EAAmNsGBlnEMBQjePsO5AgHXIJZCSoIbmRgUjMkmJYrVZCQ86Lpna6dyeKX67wxhCvkaptnGAHHqHHhtZBljhJjl2KuXpX0wo96cZAZBVMoV9QtGgNByfbZCYQmmJPKRykjRTUjmw4yyKZAk2x7E632bISp187jrlYxP6MSyarBE19rfYJnYNLxsPTAeLRpf1498mAZDZD";
                         if (isFirstMessage)
                         {
                             Console.WriteLine($"Primer mensaje de este usuario: {waId}");
-
                             // Enviar mensaje de bienvenida por WhatsApp
-                            var httpClient = new HttpClient();
-                            var url = "https://graph.facebook.com/v23.0/976270252240458/messages";
-                            var token = "EAAmNsGBlnEMBQjePsO5AgHXIJZCSoIbmRgUjMkmJYrVZCQ86Lpna6dyeKX67wxhCvkaptnGAHHqHHhtZBljhJjl2KuXpX0wo96cZAZBVMoV9QtGgNByfbZCYQmmJPKRykjRTUjmw4yyKZAk2x7E632bISp187jrlYxP6MSyarBE19rfYJnYNLxsPTAeLRpf1498mAZDZD";
                             var welcomeBody = new
                             {
                                 messaging_product = "whatsapp",
@@ -130,8 +129,47 @@ app.MapPost("/", async (HttpContext context) =>
                             {
                                 Console.WriteLine($"Error enviando mensaje de bienvenida: {ex.Message}");
                             }
-                        } else{
+                        }
+                        else
+                        {
                             Console.WriteLine($"Usuario no es la primera vez que escribe: {waId}");
+                            // Buscar el texto del mensaje recibido
+                            if (valueObj.TryGetProperty("messages", out var messagesArray) && messagesArray.GetArrayLength() > 0)
+                            {
+                                var message = messagesArray[0];
+                                if (message.TryGetProperty("text", out var textObj) && textObj.TryGetProperty("body", out var bodyProp))
+                                {
+                                    var userText = bodyProp.GetString()?.Trim();
+                                    if (userText == "1" || userText == "2")
+                                    {
+                                        string confirmMsg = userText == "1"
+                                            ? $"Hola {waId}, has elegido soporte técnico. \n Por favor, indicanos nombre completo y correo electronico."
+                                            : $"Hola {waId}, has elegido radicar una solicitud. \n Por favor, indicanos nombre completo y correo electronico.";
+                                        var confirmBody = new
+                                        {
+                                            messaging_product = "whatsapp",
+                                            recipient_type = "individual",
+                                            to = waId,
+                                            type = "text",
+                                            text = new { body = confirmMsg }
+                                        };
+                                        var confirmJson = System.Text.Json.JsonSerializer.Serialize(confirmBody);
+                                        var confirmRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                        confirmRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                        confirmRequest.Content = new StringContent(confirmJson, System.Text.Encoding.UTF8, "application/json");
+                                        try
+                                        {
+                                            var confirmResponse = await httpClient.SendAsync(confirmRequest);
+                                            var confirmRespContent = await confirmResponse.Content.ReadAsStringAsync();
+                                            Console.WriteLine($"Mensaje de confirmación enviado a {waId}. Respuesta: {confirmRespContent}");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine($"Error enviando mensaje de confirmación: {ex.Message}");
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
