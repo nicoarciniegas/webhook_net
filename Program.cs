@@ -25,7 +25,8 @@ app.MapGet("/", (HttpContext context) =>
     if (mode == "subscribe" && token == verifyToken)
     {
         Console.WriteLine("WEBHOOK VERIFIED");
-        return Results.Ok(challenge);
+        // Responder con texto plano, no JSON
+        return Results.Text(challenge, "text/plain");
     }
     else
     {
