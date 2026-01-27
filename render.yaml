@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: webhook-net
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: VERIFY_TOKEN
+        sync: false
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
