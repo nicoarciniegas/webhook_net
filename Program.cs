@@ -103,6 +103,33 @@ app.MapPost("/", async (HttpContext context) =>
                         if (isFirstMessage)
                         {
                             Console.WriteLine($"Primer mensaje de este usuario: {waId}");
+
+                            // Enviar mensaje de bienvenida por WhatsApp
+                            var httpClient = new HttpClient();
+                            var url = "https://graph.facebook.com/v23.0/976270252240458/messages";
+                            var token = "EAAmNsGBlnEMBQjePsO5AgHXIJZCSoIbmRgUjMkmJYrVZCQ86Lpna6dyeKX67wxhCvkaptnGAHHqHHhtZBljhJjl2KuXpX0wo96cZAZBVMoV9QtGgNByfbZCYQmmJPKRykjRTUjmw4yyKZAk2x7E632bISp187jrlYxP6MSyarBE19rfYJnYNLxsPTAeLRpf1498mAZDZD";
+                            var welcomeBody = new
+                            {
+                                messaging_product = "whatsapp",
+                                recipient_type = "individual",
+                                to = waId,
+                                type = "text",
+                                text = new { body = "Hola, bienvenid@ al canal de Prodygytek. Escribe 1 si necesitas soporte tecnico ó escribe 2 para radicar una solicitud. " }
+                            };
+                            var jsonBody = System.Text.Json.JsonSerializer.Serialize(welcomeBody);
+                            var request = new HttpRequestMessage(HttpMethod.Post, url);
+                            request.Headers.Add("Authorization", $"Bearer {token}");
+                            request.Content = new StringContent(jsonBody, System.Text.Encoding.UTF8, "application/json");
+                            try
+                            {
+                                var response = await httpClient.SendAsync(request);
+                                var respContent = await response.Content.ReadAsStringAsync();
+                                Console.WriteLine($"Mensaje de bienvenida enviado a {waId}. Respuesta: {respContent}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error enviando mensaje de bienvenida: {ex.Message}");
+                            }
                         }
                     }
                 }
