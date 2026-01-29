@@ -19,7 +19,8 @@ using (var connection = new SqliteConnection($"Data Source={dbPath}"))
         TIPO_SOLICITUD TEXT, 
         NOMBRE TEXT, 
         EMAIL TEXT,
-        DESCRIPCION TEXT
+        DESCRIPCION TEXT,
+        DOCUMENT_URL TEXT
     );";
     usersCmd.ExecuteNonQuery();
 }
@@ -120,7 +121,7 @@ app.MapPost("/", async (HttpContext context) =>
                                 recipient_type = "individual",
                                 to = waId,
                                 type = "text",
-                                text = new { body = "Hola, bienvenid@ al canal de Prodygytek. Escribe 1 si necesitas soporte tecnico ó escribe 2 para radicar una solicitud. " }
+                                text = new { body = "Hola, bienvenid@ al canal de Prodygytek. \nEscribe 1️⃣ si necesitas soporte tecnico ó escribe 2️⃣ para radicar una solicitud. " }
                             };
                             var jsonBody = System.Text.Json.JsonSerializer.Serialize(welcomeBody);
                             var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -151,7 +152,7 @@ app.MapPost("/", async (HttpContext context) =>
                                     {
                                         connection2.Open();
                                         var checkCmd = connection2.CreateCommand();
-                                        checkCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE, EMAIL, DESCRIPCION FROM users WHERE wa_id = $wa_id;";
+                                        checkCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE, EMAIL, DESCRIPCION, DOCUMENT_URL FROM users WHERE wa_id = $wa_id;";
                                         checkCmd.Parameters.AddWithValue("$wa_id", waId);
                                         using (var reader2 = checkCmd.ExecuteReader())
                                         {
@@ -161,6 +162,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                 var nombre = reader2["NOMBRE"] as string;
                                                 var email = reader2["EMAIL"] as string;
                                                 var descripcion = reader2["DESCRIPCION"] as string;
+                                                var documentUrl = reader2["DOCUMENT_URL"] as string;
                                                 // Si el usuario responde 1 o 2 y aún no tiene tipo de solicitud
                                                 if ((userText == "1" || userText == "2") && string.IsNullOrEmpty(tipoSolicitud))
                                                 {
@@ -308,7 +310,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             recipient_type = "individual",
                                                             to = waId,
                                                             type = "text",
-                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía los documentos necesarios para tu solicitud (puedes adjuntar archivos PDF, imágenes, etc.)." }
+                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía el documento necesario para tu solicitud (puedes adjuntar archivo PDF, imagen, etc.)." }
                                                         };
                                                         var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
                                                         var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
