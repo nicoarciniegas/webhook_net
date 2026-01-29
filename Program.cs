@@ -183,6 +183,8 @@ app.MapPost("/", async (HttpContext context) =>
                                             {
                                                 var tipoSolicitud = reader2["TIPO_SOLICITUD"] as string;
                                                 var nombre = reader2["NOMBRE"] as string;
+                                                var email = reader2["EMAIL"] as string;
+                                                Console.WriteLine($"[DEBUG] TIPO_SOLICITUD: {tipoSolicitud}, NOMBRE: {nombre}, EMAIL: {email}");
                                                 // Si el usuario responde 1 o 2 y aún no tiene tipo de solicitud
                                                 if ((userText == "1" || userText == "2") && string.IsNullOrEmpty(tipoSolicitud))
                                                 {
