@@ -9,43 +9,23 @@ var app = builder.Build();
 
 // Inicializar base de datos SQLite y tabla de usuarios
 var dbPath = "users.db";
-// Crear tabla de casos (solicitudes) si no existe
+// Crear tablas 'cases' y 'users' en una sola conexión
 using (var connection = new SqliteConnection($"Data Source={dbPath}"))
 {
     connection.Open();
-    var tableCmd = connection.CreateCommand();
-    tableCmd.CommandText = @"CREATE TABLE IF NOT EXISTS cases (
+    var casesCmd = connection.CreateCommand();
+    casesCmd.CommandText = @"CREATE TABLE IF NOT EXISTS cases (
         case_id INTEGER PRIMARY KEY AUTOINCREMENT,
         wa_id TEXT,
         descripcion TEXT,
         fecha TEXT,
         FOREIGN KEY (wa_id) REFERENCES users(wa_id)
     );";
-    tableCmd.ExecuteNonQuery();
-}
-using (var connection = new SqliteConnection($"Data Source={dbPath}"))
-{
-    connection.Open();
-    // Crear tabla con columnas TIPO_SOLICITUD, NOMBRE y EMAIL si no existen
-    var tableCmd = connection.CreateCommand();
-    tableCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, TIPO_SOLICITUD TEXT, NOMBRE TEXT, EMAIL TEXT);";
-    tableCmd.ExecuteNonQuery();
-    // Intentar agregar las columnas si la tabla ya existía
-    try {
-        var alterCmd = connection.CreateCommand();
-        alterCmd.CommandText = "ALTER TABLE users ADD COLUMN TIPO_SOLICITUD TEXT;";
-        alterCmd.ExecuteNonQuery();
-    } catch { /* Ignorar si ya existe */ }
-    try {
-        var alterCmd2 = connection.CreateCommand();
-        alterCmd2.CommandText = "ALTER TABLE users ADD COLUMN NOMBRE TEXT;";
-        alterCmd2.ExecuteNonQuery();
-    } catch { /* Ignorar si ya existe */ }
-    try {
-        var alterCmd3 = connection.CreateCommand();
-        alterCmd3.CommandText = "ALTER TABLE users ADD COLUMN EMAIL TEXT;";
-        alterCmd3.ExecuteNonQuery();
-    } catch { /* Ignorar si ya existe */ }
+    casesCmd.ExecuteNonQuery();
+
+    var usersCmd = connection.CreateCommand();
+    usersCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, TIPO_SOLICITUD TEXT, NOMBRE TEXT, EMAIL TEXT);";
+    usersCmd.ExecuteNonQuery();
 }
 
 // Get configuration values
