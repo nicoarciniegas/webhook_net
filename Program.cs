@@ -306,9 +306,6 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
                                                         Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
 
-                                                        // Esperar siguiente mensaje tipo documento
-                                                        // ...existing code...
-                                                        return Results.Ok();
                                                     }
                                                     // Si el mensaje recibido es un documento
                                                     else if (message.TryGetProperty("type", out var msgTypeProp) && msgTypeProp.GetString() == "document" && message.TryGetProperty("document", out var docObj))
