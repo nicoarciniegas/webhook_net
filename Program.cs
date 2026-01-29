@@ -296,7 +296,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             recipient_type = "individual",
                                                             to = waId,
                                                             type = "text",
-                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía el documento necesario para tu solicitud (puedes adjuntar archivo PDF, imagen, etc.)." }
+                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía el documento necesario para tu solicitud (puedes adjuntar archivo PDF)." }
                                                         };
                                                         var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
                                                         var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
@@ -305,7 +305,48 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
                                                         var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
                                                         Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
+
+                                                        // Esperar siguiente mensaje tipo documento
+                                                        // ...existing code...
                                                         return Results.Ok();
+                                                    }
+                                                    // Si el mensaje recibido es un documento
+                                                    else if (message.TryGetProperty("type", out var msgTypeProp) && msgTypeProp.GetString() == "document" && message.TryGetProperty("document", out var docObj))
+                                                    {
+                                                        var docUrl = docObj.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null;
+                                                        var fileName = docObj.TryGetProperty("filename", out var fileNameProp) ? fileNameProp.GetString() : null;
+                                                        if (!string.IsNullOrEmpty(docUrl))
+                                                        {
+                                                            // Guardar el link en la base de datos
+                                                            var updateDocCmd = connection2.CreateCommand();
+                                                            updateDocCmd.CommandText = "UPDATE users SET DOCUMENT_URL = $docUrl WHERE wa_id = $wa_id;";
+                                                            updateDocCmd.Parameters.AddWithValue("$docUrl", docUrl);
+                                                            updateDocCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                            updateDocCmd.ExecuteNonQuery();
+
+                                                            // Generar número de radicado (ejemplo: RAD-2026-00123)
+                                                            string year = DateTime.Now.Year.ToString();
+                                                            string radNum = "00123"; // Aquí podrías generar un consecutivo real
+                                                            string radicado = $"RAD-{year}-{radNum}";
+
+                                                            // Responder con mensaje de radicado
+                                                            var radicadoMsgBody = new
+                                                            {
+                                                                messaging_product = "whatsapp",
+                                                                recipient_type = "individual",
+                                                                to = waId,
+                                                                type = "text",
+                                                                text = new { body = $"✅ Tu solicitud fue registrada exitosamente.\n\nNúmero de radicado: {radicado}\nUn funcionario continuará la atención por este mismo chat." }
+                                                            };
+                                                            var radicadoMsgJson = System.Text.Json.JsonSerializer.Serialize(radicadoMsgBody);
+                                                            var radicadoMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                            radicadoMsgRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                            radicadoMsgRequest.Content = new StringContent(radicadoMsgJson, System.Text.Encoding.UTF8, "application/json");
+                                                            var radicadoMsgResponse = await httpClient.SendAsync(radicadoMsgRequest);
+                                                            var radicadoMsgRespContent = await radicadoMsgResponse.Content.ReadAsStringAsync();
+                                                            Console.WriteLine($"Mensaje de radicado enviado a {waId}. Respuesta: {radicadoMsgRespContent}");
+                                                            return Results.Ok();
+                                                        }
                                                     }
                                                 }
                                             }
