@@ -311,51 +311,8 @@ app.MapPost("/", async (HttpContext context) =>
                                                         {
                                                             Console.WriteLine($"Error enviando mensaje de solicitud de descripción: {ex.Message}");
                                                         }
-                                                    }
-                                                    // Si ya tiene tipo de solicitud, nombre y email válidos, y el mensaje no es un correo, guardar como caso
-                                                    else if (!string.IsNullOrEmpty(tipoSolicitud) && !string.IsNullOrEmpty(nombre) && System.Text.RegularExpressions.Regex.IsMatch(reader2["EMAIL"]?.ToString() ?? "", @"^[^@\s]+@[^@\s]+\.[^@\s]+$") && !string.IsNullOrEmpty(userText))
-                                                    {
-                                                        // Guardar el caso
-                                                        using (var caseConn = new SqliteConnection($"Data Source={dbPath}"))
-                                                        {
-                                                            caseConn.Open();
-                                                            var insertCaseCmd = caseConn.CreateCommand();
-                                                            insertCaseCmd.CommandText = "INSERT INTO cases (wa_id, descripcion, fecha) VALUES ($wa_id, $desc, $fecha);";
-                                                            insertCaseCmd.Parameters.AddWithValue("$wa_id", waId);
-                                                            insertCaseCmd.Parameters.AddWithValue("$desc", userText);
-                                                            insertCaseCmd.Parameters.AddWithValue("$fecha", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-                                                            insertCaseCmd.ExecuteNonQuery();
-
-                                                            // Obtener el último case_id insertado
-                                                            var lastIdCmd = caseConn.CreateCommand();
-                                                            lastIdCmd.CommandText = "SELECT last_insert_rowid();";
-                                                            var resultId = lastIdCmd.ExecuteScalar();
-                                                            var caseId = (resultId != null) ? (long)resultId : 0;
-
-                                                            // Responder al usuario con su case_id
-                                                            var caseMsgBody = new
-                                                            {
-                                                                messaging_product = "whatsapp",
-                                                                recipient_type = "individual",
-                                                                to = waId,
-                                                                type = "text",
-                                                                text = new { body = $"¡Tu solicitud ha sido registrada!\nTu número de caso es: {caseId}.\nPor favor, envía los documentos necesarios para tu solicitud (puedes adjuntar archivos PDF, imágenes, etc.)." }
-                                                            };
-                                                            var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
-                                                            var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
-                                                            caseMsgRequest.Headers.Add("Authorization", $"Bearer {token}");
-                                                            caseMsgRequest.Content = new StringContent(caseMsgJson, System.Text.Encoding.UTF8, "application/json");
-                                                            try
-                                                            {
-                                                                var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
-                                                                var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
-                                                                Console.WriteLine($"Mensaje de case_id enviado a {waId}. Respuesta: {caseMsgRespContent}");
-                                                            }
-                                                            catch (Exception ex)
-                                                            {
-                                                                Console.WriteLine($"Error enviando mensaje de case_id: {ex.Message}");
-                                                            }
-                                                        }
+                                                        // ...lógica eliminada, aquí termina el flujo...
+                                                        return; // Salir del bloque para no ejecutar más lógica
                                                     }
                                                 }
                                             }
