@@ -306,12 +306,8 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
                                                         Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
 
-                                                    }
-                                                    
-                                                    // Si el mensaje recibido es un documento
-                                                    else {
 
-                                                            // Generar número de radicado (ejemplo: RAD-2026-00123)
+                                                        // Generar número de radicado (ejemplo: RAD-2026-00123)
                                                             string year = DateTime.Now.Year.ToString();
                                                             string radNum = "00123"; // Aquí podrías generar un consecutivo real
                                                             string radicado = $"RAD-{year}-{radNum}";
@@ -358,8 +354,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             var radicadoMsgRespContent = await radicadoMsgResponse.Content.ReadAsStringAsync();
                                                             Console.WriteLine($"Mensaje de radicado enviado a {waId}. Respuesta: {radicadoMsgRespContent}");
                                                             return Results.Ok();
-                                                        }
-                                                    
+                                                    }
                                                 }
                                             }
                                         }
