@@ -307,19 +307,9 @@ app.MapPost("/", async (HttpContext context) =>
                                                         Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
 
                                                     }
+                                                    
                                                     // Si el mensaje recibido es un documento
-                                                    else if (message.TryGetProperty("type", out var msgTypeProp) && msgTypeProp.GetString() == "text" && message.TryGetProperty("text", out var docObj))
-                                                    {
-                                                        var docUrl = docObj.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null;
-                                                        var fileName = docObj.TryGetProperty("filename", out var fileNameProp) ? fileNameProp.GetString() : null;
-                                                        if (!string.IsNullOrEmpty(docUrl))
-                                                        {
-                                                            // Guardar el link en la base de datos
-                                                            var updateDocCmd = connection2.CreateCommand();
-                                                            updateDocCmd.CommandText = "UPDATE users SET DOCUMENT_URL = $docUrl WHERE wa_id = $wa_id;";
-                                                            updateDocCmd.Parameters.AddWithValue("$docUrl", docUrl);
-                                                            updateDocCmd.Parameters.AddWithValue("$wa_id", waId);
-                                                            updateDocCmd.ExecuteNonQuery();
+                                                    else {
 
                                                             // Generar número de radicado (ejemplo: RAD-2026-00123)
                                                             string year = DateTime.Now.Year.ToString();
@@ -369,7 +359,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             Console.WriteLine($"Mensaje de radicado enviado a {waId}. Respuesta: {radicadoMsgRespContent}");
                                                             return Results.Ok();
                                                         }
-                                                    }
+                                                    
                                                 }
                                             }
                                         }
