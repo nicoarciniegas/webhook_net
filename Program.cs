@@ -329,14 +329,39 @@ app.MapPost("/", async (HttpContext context) =>
                                                             string radNum = "00123"; // Aquí podrías generar un consecutivo real
                                                             string radicado = $"RAD-{year}-{radNum}";
 
-                                                            // Responder con mensaje de radicado
+                                                            // Obtener datos del usuario para el resumen
+                                                            var summaryCmd = connection2.CreateCommand();
+                                                            summaryCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE, EMAIL, DESCRIPCION FROM users WHERE wa_id = $wa_id;";
+                                                            summaryCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                            string tipoSolicitudSummary = "";
+                                                            string nombreSummary = "";
+                                                            string emailSummary = "";
+                                                            string descripcionSummary = "";
+                                                            using (var summaryReader = summaryCmd.ExecuteReader())
+                                                            {
+                                                                if (summaryReader.Read())
+                                                                {
+                                                                    tipoSolicitudSummary = summaryReader["TIPO_SOLICITUD"] as string ?? "";
+                                                                    nombreSummary = summaryReader["NOMBRE"] as string ?? "";
+                                                                    emailSummary = summaryReader["EMAIL"] as string ?? "";
+                                                                    descripcionSummary = summaryReader["DESCRIPCION"] as string ?? "";
+                                                                }
+                                                            }
+
+                                                            string resumen = $"\n\nResumen de tu solicitud:\n" +
+                                                                $"• Nombre: {nombreSummary}\n" +
+                                                                $"• Email: {emailSummary}\n" +
+                                                                $"• Tipo: {tipoSolicitudSummary}\n" +
+                                                                $"• Descripción: {descripcionSummary}";
+
+                                                            // Responder con mensaje de radicado y resumen
                                                             var radicadoMsgBody = new
                                                             {
                                                                 messaging_product = "whatsapp",
                                                                 recipient_type = "individual",
                                                                 to = waId,
                                                                 type = "text",
-                                                                text = new { body = $"✅ Tu solicitud fue registrada exitosamente.\n\nNúmero de radicado: {radicado}\nUn funcionario continuará la atención por este mismo chat." }
+                                                                text = new { body = $"✅ Tu solicitud fue registrada exitosamente.\n\nNúmero de radicado: {radicado}{resumen}\n\nUn funcionario continuará la atención por este mismo chat." }
                                                             };
                                                             var radicadoMsgJson = System.Text.Json.JsonSerializer.Serialize(radicadoMsgBody);
                                                             var radicadoMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
