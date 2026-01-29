@@ -257,16 +257,9 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var thanksRequest = new HttpRequestMessage(HttpMethod.Post, url);
                                                         thanksRequest.Headers.Add("Authorization", $"Bearer {token}");
                                                         thanksRequest.Content = new StringContent(thanksJson, System.Text.Encoding.UTF8, "application/json");
-                                                        try
-                                                        {
-                                                            var thanksResponse = await httpClient.SendAsync(thanksRequest);
-                                                            var thanksRespContent = await thanksResponse.Content.ReadAsStringAsync();
-                                                            Console.WriteLine($"Mensaje de agradecimiento de correo enviado a {waId}. Respuesta: {thanksRespContent}");
-                                                        }
-                                                        catch (Exception ex)
-                                                        {
-                                                            Console.WriteLine($"Error enviando mensaje de agradecimiento de correo: {ex.Message}");
-                                                        }
+                                                        var thanksResponse = await httpClient.SendAsync(thanksRequest);
+                                                        var thanksRespContent = await thanksResponse.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Mensaje de agradecimiento de correo enviado a {waId}. Respuesta: {thanksRespContent}");
 
                                                         // Mensaje para describir la solicitud
                                                         var describeBody = new
@@ -281,16 +274,9 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var describeRequest = new HttpRequestMessage(HttpMethod.Post, url);
                                                         describeRequest.Headers.Add("Authorization", $"Bearer {token}");
                                                         describeRequest.Content = new StringContent(describeJson, System.Text.Encoding.UTF8, "application/json");
-                                                        try
-                                                        {
-                                                            var describeResponse = await httpClient.SendAsync(describeRequest);
-                                                            var describeRespContent = await describeResponse.Content.ReadAsStringAsync();
-                                                            Console.WriteLine($"Mensaje de solicitud de descripción enviado a {waId}. Respuesta: {describeRespContent}");
-                                                        }
-                                                        catch (Exception ex)
-                                                        {
-                                                            Console.WriteLine($"Error enviando mensaje de solicitud de descripción: {ex.Message}");
-                                                        }
+                                                        var describeResponse = await httpClient.SendAsync(describeRequest);
+                                                        var describeRespContent = await describeResponse.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Mensaje de solicitud de descripción enviado a {waId}. Respuesta: {describeRespContent}");
                                                         return Results.Ok();
                                                     }
                                                     // Si no es un correo, se asume que es la descripción de la solicitud
@@ -316,16 +302,9 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
                                                         caseMsgRequest.Headers.Add("Authorization", $"Bearer {token}");
                                                         caseMsgRequest.Content = new StringContent(caseMsgJson, System.Text.Encoding.UTF8, "application/json");
-                                                        try
-                                                        {
-                                                            var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
-                                                            var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
-                                                            Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
-                                                        }
-                                                        catch (Exception ex)
-                                                        {
-                                                            Console.WriteLine($"Error enviando mensaje de confirmación: {ex.Message}");
-                                                        }
+                                                        var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
+                                                        var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
                                                         return Results.Ok();
                                                     }
                                                 }
