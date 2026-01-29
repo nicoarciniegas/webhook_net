@@ -308,7 +308,7 @@ app.MapPost("/", async (HttpContext context) =>
 
                                                     }
                                                     // Si el mensaje recibido es un documento
-                                                    else if (message.TryGetProperty("type", out var msgTypeProp) && msgTypeProp.GetString() == "document" && message.TryGetProperty("document", out var docObj))
+                                                    else if (message.TryGetProperty("type", out var msgTypeProp) && msgTypeProp.GetString() == "text" && message.TryGetProperty("text", out var docObj))
                                                     {
                                                         var docUrl = docObj.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null;
                                                         var fileName = docObj.TryGetProperty("filename", out var fileNameProp) ? fileNameProp.GetString() : null;
