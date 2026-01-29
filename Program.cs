@@ -312,8 +312,8 @@ app.MapPost("/", async (HttpContext context) =>
                                                             Console.WriteLine($"Error enviando mensaje de solicitud de descripción: {ex.Message}");
                                                         }
                                                     }
-                                                    // Si ya tiene tipo de solicitud, nombre y email, y el mensaje no es un correo, guardar como caso
-                                                    else if (System.Text.RegularExpressions.Regex.IsMatch(nombre ?? "", @".+") && System.Text.RegularExpressions.Regex.IsMatch(tipoSolicitud ?? "", @".+") && System.Text.RegularExpressions.Regex.IsMatch(reader2["EMAIL"]?.ToString() ?? "", @"^[^@\s]+@[^@\s]+\.[^@\s]+$") && !string.IsNullOrEmpty(userText))
+                                                    // Si ya tiene tipo de solicitud, nombre y email válidos, y el mensaje no es un correo, guardar como caso
+                                                    else if (!string.IsNullOrEmpty(tipoSolicitud) && !string.IsNullOrEmpty(nombre) && System.Text.RegularExpressions.Regex.IsMatch(reader2["EMAIL"]?.ToString() ?? "", @"^[^@\s]+@[^@\s]+\.[^@\s]+$") && !string.IsNullOrEmpty(userText))
                                                     {
                                                         // Guardar el caso
                                                         using (var caseConn = new SqliteConnection($"Data Source={dbPath}"))
@@ -339,7 +339,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                                 recipient_type = "individual",
                                                                 to = waId,
                                                                 type = "text",
-                                                                text = new { body = $"¡Tu solicitud ha sido registrada! Tu número de caso es: {caseId}" }
+                                                                text = new { body = $"¡Tu solicitud ha sido registrada!\nTu número de caso es: {caseId}.\nPor favor, envía los documentos necesarios para tu solicitud (puedes adjuntar archivos PDF, imágenes, etc.)." }
                                                             };
                                                             var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
                                                             var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
