@@ -312,7 +312,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             Console.WriteLine($"Error enviando mensaje de solicitud de descripción: {ex.Message}");
                                                         }
                                                         // ...lógica eliminada, aquí termina el flujo...
-                                                        return; // Salir del bloque para no ejecutar más lógica
+                                                        return Results.Ok(); // Salir del bloque para no ejecutar más lógica y cumplir con el tipo de retorno
                                                     }
                                                 }
                                             }
