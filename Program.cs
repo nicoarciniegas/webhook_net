@@ -13,18 +13,14 @@ var dbPath = "users.db";
 using (var connection = new SqliteConnection($"Data Source={dbPath}"))
 {
     connection.Open();
-    var casesCmd = connection.CreateCommand();
-    casesCmd.CommandText = @"CREATE TABLE IF NOT EXISTS cases (
-        case_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        wa_id TEXT,
-        descripcion TEXT,
-        fecha TEXT,
-        FOREIGN KEY (wa_id) REFERENCES users(wa_id)
-    );";
-    casesCmd.ExecuteNonQuery();
-
     var usersCmd = connection.CreateCommand();
-    usersCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, TIPO_SOLICITUD TEXT, NOMBRE TEXT, EMAIL TEXT);";
+    usersCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (
+        wa_id TEXT PRIMARY KEY, 
+        TIPO_SOLICITUD TEXT, 
+        NOMBRE TEXT, 
+        EMAIL TEXT,
+        DESCRIPCION TEXT
+    );";
     usersCmd.ExecuteNonQuery();
 }
 
@@ -155,7 +151,7 @@ app.MapPost("/", async (HttpContext context) =>
                                     {
                                         connection2.Open();
                                         var checkCmd = connection2.CreateCommand();
-                                        checkCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE FROM users WHERE wa_id = $wa_id;";
+                                        checkCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE, EMAIL, DESCRIPCION FROM users WHERE wa_id = $wa_id;";
                                         checkCmd.Parameters.AddWithValue("$wa_id", waId);
                                         using (var reader2 = checkCmd.ExecuteReader())
                                         {
@@ -163,6 +159,8 @@ app.MapPost("/", async (HttpContext context) =>
                                             {
                                                 var tipoSolicitud = reader2["TIPO_SOLICITUD"] as string;
                                                 var nombre = reader2["NOMBRE"] as string;
+                                                var email = reader2["EMAIL"] as string;
+                                                var descripcion = reader2["DESCRIPCION"] as string;
                                                 // Si el usuario responde 1 o 2 y aún no tiene tipo de solicitud
                                                 if ((userText == "1" || userText == "2") && string.IsNullOrEmpty(tipoSolicitud))
                                                 {
@@ -291,8 +289,42 @@ app.MapPost("/", async (HttpContext context) =>
                                                         {
                                                             Console.WriteLine($"Error enviando mensaje de solicitud de descripción: {ex.Message}");
                                                         }
-                                                        // ...lógica eliminada, aquí termina el flujo...
-                                                        return Results.Ok(); // Salir del bloque para no ejecutar más lógica y cumplir con el tipo de retorno
+                                                        return Results.Ok();
+                                                    }
+                                                    // Si no es un correo, se asume que es la descripción de la solicitud
+                                                    else if (!string.IsNullOrEmpty(userText))
+                                                    {
+                                                        // Guardar la descripción directamente en la tabla users
+                                                        var updateDescCmd = connection2.CreateCommand();
+                                                        updateDescCmd.CommandText = "UPDATE users SET DESCRIPCION = $desc WHERE wa_id = $wa_id;";
+                                                        updateDescCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                        updateDescCmd.Parameters.AddWithValue("$desc", userText);
+                                                        updateDescCmd.ExecuteNonQuery();
+
+                                                        // Responder al usuario con confirmación
+                                                        var caseMsgBody = new
+                                                        {
+                                                            messaging_product = "whatsapp",
+                                                            recipient_type = "individual",
+                                                            to = waId,
+                                                            type = "text",
+                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía los documentos necesarios para tu solicitud (puedes adjuntar archivos PDF, imágenes, etc.)." }
+                                                        };
+                                                        var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
+                                                        var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                        caseMsgRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                        caseMsgRequest.Content = new StringContent(caseMsgJson, System.Text.Encoding.UTF8, "application/json");
+                                                        try
+                                                        {
+                                                            var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
+                                                            var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
+                                                            Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
+                                                        }
+                                                        catch (Exception ex)
+                                                        {
+                                                            Console.WriteLine($"Error enviando mensaje de confirmación: {ex.Message}");
+                                                        }
+                                                        return Results.Ok();
                                                     }
                                                 }
                                             }
