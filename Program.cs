@@ -12,9 +12,26 @@ var dbPath = "users.db";
 using (var connection = new SqliteConnection($"Data Source={dbPath}"))
 {
     connection.Open();
+    // Crear tabla con columnas TIPO_SOLICITUD, NOMBRE y EMAIL si no existen
     var tableCmd = connection.CreateCommand();
-    tableCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY);";
+    tableCmd.CommandText = @"CREATE TABLE IF NOT EXISTS users (wa_id TEXT PRIMARY KEY, TIPO_SOLICITUD TEXT, NOMBRE TEXT, EMAIL TEXT);";
     tableCmd.ExecuteNonQuery();
+    // Intentar agregar las columnas si la tabla ya existía
+    try {
+        var alterCmd = connection.CreateCommand();
+        alterCmd.CommandText = "ALTER TABLE users ADD COLUMN TIPO_SOLICITUD TEXT;";
+        alterCmd.ExecuteNonQuery();
+    } catch { /* Ignorar si ya existe */ }
+    try {
+        var alterCmd2 = connection.CreateCommand();
+        alterCmd2.CommandText = "ALTER TABLE users ADD COLUMN NOMBRE TEXT;";
+        alterCmd2.ExecuteNonQuery();
+    } catch { /* Ignorar si ya existe */ }
+    try {
+        var alterCmd3 = connection.CreateCommand();
+        alterCmd3.CommandText = "ALTER TABLE users ADD COLUMN EMAIL TEXT;";
+        alterCmd3.ExecuteNonQuery();
+    } catch { /* Ignorar si ya existe */ }
 }
 
 // Get configuration values
@@ -140,32 +157,124 @@ app.MapPost("/", async (HttpContext context) =>
                                 if (message.TryGetProperty("text", out var textObj) && textObj.TryGetProperty("body", out var bodyProp))
                                 {
                                     var userText = bodyProp.GetString()?.Trim();
-                                    if (userText == "1" || userText == "2")
+                                    using (var connection2 = new SqliteConnection($"Data Source={dbPath}"))
                                     {
-                                        string confirmMsg = userText == "1"
-                                            ? $"Hola {waId}, has elegido soporte técnico. \n Por favor, indicanos nombre completo y correo electronico."
-                                            : $"Hola {waId}, has elegido radicar una solicitud. \n Por favor, indicanos nombre completo y correo electronico.";
-                                        var confirmBody = new
+                                        connection2.Open();
+                                        var checkCmd = connection2.CreateCommand();
+                                        checkCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE FROM users WHERE wa_id = $wa_id;";
+                                        checkCmd.Parameters.AddWithValue("$wa_id", waId);
+                                        using (var reader2 = checkCmd.ExecuteReader())
                                         {
-                                            messaging_product = "whatsapp",
-                                            recipient_type = "individual",
-                                            to = waId,
-                                            type = "text",
-                                            text = new { body = confirmMsg }
-                                        };
-                                        var confirmJson = System.Text.Json.JsonSerializer.Serialize(confirmBody);
-                                        var confirmRequest = new HttpRequestMessage(HttpMethod.Post, url);
-                                        confirmRequest.Headers.Add("Authorization", $"Bearer {token}");
-                                        confirmRequest.Content = new StringContent(confirmJson, System.Text.Encoding.UTF8, "application/json");
-                                        try
-                                        {
-                                            var confirmResponse = await httpClient.SendAsync(confirmRequest);
-                                            var confirmRespContent = await confirmResponse.Content.ReadAsStringAsync();
-                                            Console.WriteLine($"Mensaje de confirmación enviado a {waId}. Respuesta: {confirmRespContent}");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Console.WriteLine($"Error enviando mensaje de confirmación: {ex.Message}");
+                                            if (reader2.Read())
+                                            {
+                                                var tipoSolicitud = reader2["TIPO_SOLICITUD"] as string;
+                                                var nombre = reader2["NOMBRE"] as string;
+                                                // Si el usuario responde 1 o 2 y aún no tiene tipo de solicitud
+                                                if ((userText == "1" || userText == "2") && string.IsNullOrEmpty(tipoSolicitud))
+                                                {
+                                                    string tipo = userText == "1" ? "SOPORTE_TECNICO" : "RADICAR_SOLICITUD";
+                                                    var updateCmd = connection2.CreateCommand();
+                                                    updateCmd.CommandText = "UPDATE users SET TIPO_SOLICITUD = $tipo WHERE wa_id = $wa_id;";
+                                                    updateCmd.Parameters.AddWithValue("$tipo", tipo);
+                                                    updateCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                    updateCmd.ExecuteNonQuery();
+
+                                                    string confirmMsg = userText == "1"
+                                                        ? $"Hola {waId}, has elegido soporte técnico.\nPor favor, indícanos tu nombre completo."
+                                                        : $"Hola {waId}, has elegido radicar una solicitud.\nPor favor, indícanos tu nombre completo.";
+                                                    // Enviar mensaje de confirmación
+                                                    var confirmBody = new
+                                                    {
+                                                        messaging_product = "whatsapp",
+                                                        recipient_type = "individual",
+                                                        to = waId,
+                                                        type = "text",
+                                                        text = new { body = confirmMsg }
+                                                    };
+                                                    var confirmJson = System.Text.Json.JsonSerializer.Serialize(confirmBody);
+                                                    var confirmRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                    confirmRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                    confirmRequest.Content = new StringContent(confirmJson, System.Text.Encoding.UTF8, "application/json");
+                                                    try
+                                                    {
+                                                        var confirmResponse = await httpClient.SendAsync(confirmRequest);
+                                                        var confirmRespContent = await confirmResponse.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Mensaje de confirmación enviado a {waId}. Respuesta: {confirmRespContent}");
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        Console.WriteLine($"Error enviando mensaje de confirmación: {ex.Message}");
+                                                    }
+                                                }
+                                                // Si ya tiene tipo de solicitud pero no nombre, guardar el primer mensaje como nombre y pedir correo
+                                                else if (!string.IsNullOrEmpty(tipoSolicitud) && string.IsNullOrEmpty(nombre) && userText != "1" && userText != "2")
+                                                {
+                                                    var updateCmd = connection2.CreateCommand();
+                                                    updateCmd.CommandText = "UPDATE users SET NOMBRE = $nombre WHERE wa_id = $wa_id;";
+                                                    updateCmd.Parameters.AddWithValue("$nombre", userText);
+                                                    updateCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                    updateCmd.ExecuteNonQuery();
+
+                                                    var askEmailBody = new
+                                                    {
+                                                        messaging_product = "whatsapp",
+                                                        recipient_type = "individual",
+                                                        to = waId,
+                                                        type = "text",
+                                                        text = new { body = $"¡Gracias {userText}! Ahora, por favor indícanos tu correo electrónico." }
+                                                    };
+                                                    var askEmailJson = System.Text.Json.JsonSerializer.Serialize(askEmailBody);
+                                                    var askEmailRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                    askEmailRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                    askEmailRequest.Content = new StringContent(askEmailJson, System.Text.Encoding.UTF8, "application/json");
+                                                    try
+                                                    {
+                                                        var askEmailResponse = await httpClient.SendAsync(askEmailRequest);
+                                                        var askEmailRespContent = await askEmailResponse.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Mensaje de solicitud de correo enviado a {waId}. Respuesta: {askEmailRespContent}");
+                                                    }
+                                                    catch (Exception ex)
+                                                    {
+                                                        Console.WriteLine($"Error enviando mensaje de solicitud de correo: {ex.Message}");
+                                                    }
+                                                }
+                                                // Si ya tiene tipo de solicitud y nombre pero no email, y el mensaje parece un correo, guardar el correo
+                                                else if (!string.IsNullOrEmpty(tipoSolicitud) && !string.IsNullOrEmpty(nombre))
+                                                {
+                                                    // Validar si el mensaje es un correo electrónico simple
+                                                    if (System.Text.RegularExpressions.Regex.IsMatch(userText ?? "", @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                                                    {
+                                                        var updateCmd = connection2.CreateCommand();
+                                                        updateCmd.CommandText = "UPDATE users SET EMAIL = $email WHERE wa_id = $wa_id;";
+                                                        updateCmd.Parameters.AddWithValue("$email", userText);
+                                                        updateCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                        updateCmd.ExecuteNonQuery();
+
+                                                        var thanksBody = new
+                                                        {
+                                                            messaging_product = "whatsapp",
+                                                            recipient_type = "individual",
+                                                            to = waId,
+                                                            type = "text",
+                                                            text = new { body = $"¡Gracias! Hemos registrado tu correo electrónico." }
+                                                        };
+                                                        var thanksJson = System.Text.Json.JsonSerializer.Serialize(thanksBody);
+                                                        var thanksRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                        thanksRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                        thanksRequest.Content = new StringContent(thanksJson, System.Text.Encoding.UTF8, "application/json");
+                                                        try
+                                                        {
+                                                            var thanksResponse = await httpClient.SendAsync(thanksRequest);
+                                                            var thanksRespContent = await thanksResponse.Content.ReadAsStringAsync();
+                                                            Console.WriteLine($"Mensaje de agradecimiento de correo enviado a {waId}. Respuesta: {thanksRespContent}");
+                                                        }
+                                                        catch (Exception ex)
+                                                        {
+                                                            Console.WriteLine($"Error enviando mensaje de agradecimiento de correo: {ex.Message}");
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
