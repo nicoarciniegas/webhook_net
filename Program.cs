@@ -237,7 +237,10 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var uploadUrl = $"https://graph.facebook.com/v23.0/976270252240458/media";
                                                         var uploadContent = new MultipartFormDataContent();
                                                         uploadContent.Add(new StringContent("whatsapp"), "messaging_product");
-                                                        uploadContent.Add(new ByteArrayContent(imageBytes), "file", "confirmacion.jpeg");
+                                                        
+                                                        var fileContent = new ByteArrayContent(imageBytes);
+                                                        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                                                        uploadContent.Add(fileContent, "file", "confirmacion.jpeg");
                                                         
                                                         var uploadReq = new HttpRequestMessage(HttpMethod.Post, uploadUrl);
                                                         uploadReq.Headers.Add("Authorization", $"Bearer {token}");
