@@ -141,11 +141,98 @@ app.MapPost("/", async (HttpContext context) =>
                         else
                         {
                             Console.WriteLine($"Usuario no es la primera vez que escribe: {waId}");
-                            // Buscar el texto del mensaje recibido
+                            // Buscar el mensaje recibido (puede ser texto, imagen o documento)
                             if (valueObj.TryGetProperty("messages", out var messagesArray) && messagesArray.GetArrayLength() > 0)
                             {
                                 var message = messagesArray[0];
-                                if (message.TryGetProperty("text", out var textObj) && textObj.TryGetProperty("body", out var bodyProp))
+                                
+                                // Obtener tipo de mensaje
+                                var messageType = message.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+                                
+                                // Procesar documento o imagen
+                                if ((messageType == "document" || messageType == "image") && 
+                                    message.TryGetProperty(messageType, out var mediaObj))
+                                {
+                                    if (mediaObj.TryGetProperty("id", out var mediaIdProp) && 
+                                        mediaObj.TryGetProperty("mime_type", out var mimeTypeProp))
+                                    {
+                                        var mediaId = mediaIdProp.GetString();
+                                        var mimeType = mimeTypeProp.GetString();
+                                        var fileName = mediaObj.TryGetProperty("filename", out var fileNameProp) 
+                                            ? fileNameProp.GetString() 
+                                            : $"file_{DateTime.Now:yyyyMMddHHmmss}";
+                                        
+                                        Console.WriteLine($"Recibido {messageType}: {fileName} ({mimeType})");
+                                        
+                                        // 1. Obtener URL del archivo desde Meta API
+                                        var mediaUrl = $"https://graph.facebook.com/v23.0/{mediaId}";
+                                        var mediaRequest = new HttpRequestMessage(HttpMethod.Get, mediaUrl);
+                                        mediaRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                        
+                                        try
+                                        {
+                                            var mediaResponse = await httpClient.SendAsync(mediaRequest);
+                                            var mediaJson = await mediaResponse.Content.ReadAsStringAsync();
+                                            var mediaDoc = System.Text.Json.JsonDocument.Parse(mediaJson);
+                                            
+                                            if (mediaDoc.RootElement.TryGetProperty("url", out var urlProp))
+                                            {
+                                                var fileUrl = urlProp.GetString();
+                                                Console.WriteLine($"URL del archivo obtenida: {fileUrl}");
+                                                
+                                                // 2. Descargar el archivo usando el token
+                                                var downloadRequest = new HttpRequestMessage(HttpMethod.Get, fileUrl);
+                                                downloadRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                
+                                                var downloadResponse = await httpClient.SendAsync(downloadRequest);
+                                                var fileBytes = await downloadResponse.Content.ReadAsByteArrayAsync();
+                                                
+                                                // 3. Guardar archivo localmente
+                                                var uploadsDir = "uploads";
+                                                if (!Directory.Exists(uploadsDir))
+                                                {
+                                                    Directory.CreateDirectory(uploadsDir);
+                                                }
+                                                
+                                                var localFilePath = Path.Combine(uploadsDir, $"{waId}_{fileName}");
+                                                await File.WriteAllBytesAsync(localFilePath, fileBytes);
+                                                Console.WriteLine($"Archivo guardado en: {localFilePath} ({fileBytes.Length} bytes)");
+                                                
+                                                // 4. Guardar URL en base de datos
+                                                using (var connection2 = new SqliteConnection($"Data Source={dbPath}"))
+                                                {
+                                                    connection2.Open();
+                                                    var updateDocCmd = connection2.CreateCommand();
+                                                    updateDocCmd.CommandText = "UPDATE users SET DOCUMENT_URL = $docUrl WHERE wa_id = $wa_id;";
+                                                    updateDocCmd.Parameters.AddWithValue("$docUrl", localFilePath);
+                                                    updateDocCmd.Parameters.AddWithValue("$wa_id", waId);
+                                                    updateDocCmd.ExecuteNonQuery();
+                                                }
+                                                
+                                                // 5. Confirmar recepción al usuario
+                                                var confirmDocBody = new
+                                                {
+                                                    messaging_product = "whatsapp",
+                                                    recipient_type = "individual",
+                                                    to = waId,
+                                                    type = "text",
+                                                    text = new { body = $"✅ Documento recibido: {fileName}\nTu solicitud está completa. Un agente te contactará pronto." }
+                                                };
+                                                var confirmDocJson = System.Text.Json.JsonSerializer.Serialize(confirmDocBody);
+                                                var confirmDocRequest = new HttpRequestMessage(HttpMethod.Post, url);
+                                                confirmDocRequest.Headers.Add("Authorization", $"Bearer {token}");
+                                                confirmDocRequest.Content = new StringContent(confirmDocJson, System.Text.Encoding.UTF8, "application/json");
+                                                await httpClient.SendAsync(confirmDocRequest);
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine($"Error procesando archivo: {ex.Message}");
+                                        }
+                                    }
+                                }
+                                // Procesar mensaje de texto
+                                else if (message.TryGetProperty("text", out var textObj) && textObj.TryGetProperty("body", out var bodyProp))
                                 {
                                     var userText = bodyProp.GetString()?.Trim();
                                     using (var connection2 = new SqliteConnection($"Data Source={dbPath}"))
@@ -359,17 +446,17 @@ app.MapPost("/", async (HttpContext context) =>
                                             }
                                         }
                                     }
-                                }
-                            }
-                        }
+                                } // Cierre del else if de mensaje de texto
+                            } // Cierre del if de messagesArray
+                        } // Cierre del else (no es primer mensaje)
                     }
                 }
             }
         }
     }
-    catch
+    catch (Exception ex)
     {
-        Console.WriteLine(body);
+        Console.WriteLine($"Error procesando webhook: {ex.Message}");
     }
 
     return Results.Ok();
