@@ -14,6 +14,7 @@ RUN dotnet publish -c Release -o out
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/out .
+COPY --from=build /app/IMG_9066.JPEG .
 
 # Render provides PORT environment variable
 ENV ASPNETCORE_URLS=http://0.0.0.0:${PORT}
