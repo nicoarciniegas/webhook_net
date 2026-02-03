@@ -223,6 +223,64 @@ app.MapPost("/", async (HttpContext context) =>
                                                 confirmDocRequest.Headers.Add("Authorization", $"Bearer {token}");
                                                 confirmDocRequest.Content = new StringContent(confirmDocJson, System.Text.Encoding.UTF8, "application/json");
                                                 await httpClient.SendAsync(confirmDocRequest);
+                                                
+                                                // 6. Enviar imagen de confirmación (IMG_9066.JPEG)
+                                                try
+                                                {
+                                                    var imagePath = "IMG_9066.JPEG";
+                                                    if (File.Exists(imagePath))
+                                                    {
+                                                        var imageBytes = await File.ReadAllBytesAsync(imagePath);
+                                                        Console.WriteLine($"Enviando imagen de confirmación ({imageBytes.Length} bytes)...");
+                                                        
+                                                        // Subir imagen a Meta
+                                                        var uploadUrl = $"https://graph.facebook.com/v23.0/976270252240458/media";
+                                                        var uploadContent = new MultipartFormDataContent();
+                                                        uploadContent.Add(new StringContent("whatsapp"), "messaging_product");
+                                                        uploadContent.Add(new ByteArrayContent(imageBytes), "file", "confirmacion.jpeg");
+                                                        
+                                                        var uploadReq = new HttpRequestMessage(HttpMethod.Post, uploadUrl);
+                                                        uploadReq.Headers.Add("Authorization", $"Bearer {token}");
+                                                        uploadReq.Content = uploadContent;
+                                                        
+                                                        var uploadResp = await httpClient.SendAsync(uploadReq);
+                                                        var uploadJsonStr = await uploadResp.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Respuesta de subida de imagen: {uploadJsonStr}");
+                                                        
+                                                        var mediaIdDoc = System.Text.Json.JsonDocument.Parse(uploadJsonStr);
+                                                        var uploadedMediaId = mediaIdDoc.RootElement.GetProperty("id").GetString();
+                                                        
+                                                        // Enviar imagen al usuario
+                                                        var sendImageBody = new
+                                                        {
+                                                            messaging_product = "whatsapp",
+                                                            recipient_type = "individual",
+                                                            to = waId,
+                                                            type = "image",
+                                                            image = new 
+                                                            { 
+                                                                id = uploadedMediaId,
+                                                                caption = "Gracias por tu documento. Aquí está tu confirmación visual."
+                                                            }
+                                                        };
+                                                        
+                                                        var sendImageJson = System.Text.Json.JsonSerializer.Serialize(sendImageBody);
+                                                        var sendImageReq = new HttpRequestMessage(HttpMethod.Post, url);
+                                                        sendImageReq.Headers.Add("Authorization", $"Bearer {token}");
+                                                        sendImageReq.Content = new StringContent(sendImageJson, System.Text.Encoding.UTF8, "application/json");
+                                                        var sendImageResp = await httpClient.SendAsync(sendImageReq);
+                                                        var sendImageRespContent = await sendImageResp.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Imagen enviada a {waId}. Respuesta: {sendImageRespContent}");
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"Advertencia: No se encontró la imagen {imagePath}");
+                                                    }
+                                                }
+                                                catch (Exception imgEx)
+                                                {
+                                                    Console.WriteLine($"Error enviando imagen de confirmación: {imgEx.Message}");
+                                                }
                                             }
                                         }
                                         catch (Exception ex)
