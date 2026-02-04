@@ -444,7 +444,7 @@ app.MapPost("/", async (HttpContext context) =>
                                                             recipient_type = "individual",
                                                             to = waId,
                                                             type = "text",
-                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía el documento necesario para tu solicitud (puedes adjuntar archivo PDF)." }
+                                                            text = new { body = $"¡Tu solicitud ha sido registrada!\nPor favor, envía el documento necesario para tu solicitud (puedes adjuntar archivo PDF, imagen, etc.)." }
                                                         };
                                                         var caseMsgJson = System.Text.Json.JsonSerializer.Serialize(caseMsgBody);
                                                         var caseMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
@@ -453,55 +453,6 @@ app.MapPost("/", async (HttpContext context) =>
                                                         var caseMsgResponse = await httpClient.SendAsync(caseMsgRequest);
                                                         var caseMsgRespContent = await caseMsgResponse.Content.ReadAsStringAsync();
                                                         Console.WriteLine($"Mensaje de confirmación de registro enviado a {waId}. Respuesta: {caseMsgRespContent}");
-
-
-                                                        // Generar número de radicado (ejemplo: RAD-2026-00123)
-                                                            string year = DateTime.Now.Year.ToString();
-                                                            string radNum = "00123"; // Aquí podrías generar un consecutivo real
-                                                            string radicado = $"RAD-{year}-{radNum}";
-
-                                                            // Obtener datos del usuario para el resumen
-                                                            var summaryCmd = connection2.CreateCommand();
-                                                            summaryCmd.CommandText = "SELECT TIPO_SOLICITUD, NOMBRE, EMAIL, DESCRIPCION FROM users WHERE wa_id = $wa_id;";
-                                                            summaryCmd.Parameters.AddWithValue("$wa_id", waId);
-                                                            string tipoSolicitudSummary = "";
-                                                            string nombreSummary = "";
-                                                            string emailSummary = "";
-                                                            string descripcionSummary = "";
-                                                            using (var summaryReader = summaryCmd.ExecuteReader())
-                                                            {
-                                                                if (summaryReader.Read())
-                                                                {
-                                                                    tipoSolicitudSummary = summaryReader["TIPO_SOLICITUD"] as string ?? "";
-                                                                    nombreSummary = summaryReader["NOMBRE"] as string ?? "";
-                                                                    emailSummary = summaryReader["EMAIL"] as string ?? "";
-                                                                    descripcionSummary = summaryReader["DESCRIPCION"] as string ?? "";
-                                                                }
-                                                            }
-
-                                                            string resumen = $"\n\nResumen de tu solicitud:\n" +
-                                                                $"• Nombre: {nombreSummary}\n" +
-                                                                $"• Email: {emailSummary}\n" +
-                                                                $"• Tipo: {tipoSolicitudSummary}\n" +
-                                                                $"• Descripción: {descripcionSummary}";
-
-                                                            // Responder con mensaje de radicado y resumen
-                                                            var radicadoMsgBody = new
-                                                            {
-                                                                messaging_product = "whatsapp",
-                                                                recipient_type = "individual",
-                                                                to = waId,
-                                                                type = "text",
-                                                                text = new { body = $"✅ Tu solicitud fue registrada exitosamente.\n\nNúmero de radicado: {radicado}{resumen}\n\nUn funcionario continuará la atención por este mismo chat." }
-                                                            };
-                                                            var radicadoMsgJson = System.Text.Json.JsonSerializer.Serialize(radicadoMsgBody);
-                                                            var radicadoMsgRequest = new HttpRequestMessage(HttpMethod.Post, url);
-                                                            radicadoMsgRequest.Headers.Add("Authorization", $"Bearer {token}");
-                                                            radicadoMsgRequest.Content = new StringContent(radicadoMsgJson, System.Text.Encoding.UTF8, "application/json");
-                                                            var radicadoMsgResponse = await httpClient.SendAsync(radicadoMsgRequest);
-                                                            var radicadoMsgRespContent = await radicadoMsgResponse.Content.ReadAsStringAsync();
-                                                            Console.WriteLine($"Mensaje de radicado enviado a {waId}. Respuesta: {radicadoMsgRespContent}");
-                                                            return Results.Ok();
                                                     }
                                                 }
                                             }
