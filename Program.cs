@@ -284,6 +284,71 @@ app.MapPost("/", async (HttpContext context) =>
                                                 {
                                                     Console.WriteLine($"Error enviando imagen de confirmación: {imgEx.Message}");
                                                 }
+                                                
+                                                // 7. Enviar PDF del manual como documento
+                                                try
+                                                {
+                                                    var pdfPath = "Manual despliegue Whatsapp api cloud.pdf";
+                                                    if (File.Exists(pdfPath))
+                                                    {
+                                                        var pdfBytes = await File.ReadAllBytesAsync(pdfPath);
+                                                        Console.WriteLine($"Enviando PDF del manual ({pdfBytes.Length} bytes)...");
+                                                        
+                                                        // Subir PDF a Meta
+                                                        var uploadPdfUrl = $"https://graph.facebook.com/v23.0/976270252240458/media";
+                                                        var uploadPdfContent = new MultipartFormDataContent();
+                                                        uploadPdfContent.Add(new StringContent("whatsapp"), "messaging_product");
+                                                        
+                                                        var pdfContent = new ByteArrayContent(pdfBytes);
+                                                        pdfContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+                                                        uploadPdfContent.Add(pdfContent, "file", "Manual_WhatsApp.pdf");
+                                                        
+                                                        var uploadPdfReq = new HttpRequestMessage(HttpMethod.Post, uploadPdfUrl);
+                                                        uploadPdfReq.Headers.Add("Authorization", $"Bearer {token}");
+                                                        uploadPdfReq.Content = uploadPdfContent;
+                                                        
+                                                        var uploadPdfResp = await httpClient.SendAsync(uploadPdfReq);
+                                                        var uploadPdfJsonStr = await uploadPdfResp.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Respuesta de subida de PDF: {uploadPdfJsonStr}");
+                                                        
+                                                        var pdfMediaDoc = System.Text.Json.JsonDocument.Parse(uploadPdfJsonStr);
+                                                        if (pdfMediaDoc.RootElement.TryGetProperty("id", out var pdfMediaIdProp))
+                                                        {
+                                                            var pdfMediaId = pdfMediaIdProp.GetString();
+                                                            
+                                                            // Enviar documento al usuario
+                                                            var sendPdfBody = new
+                                                            {
+                                                                messaging_product = "whatsapp",
+                                                                recipient_type = "individual",
+                                                                to = waId,
+                                                                type = "document",
+                                                                document = new 
+                                                                { 
+                                                                    id = pdfMediaId,
+                                                                    caption = "📄 Aquí tienes el manual de referencia.",
+                                                                    filename = "Manual_WhatsApp_API.pdf"
+                                                                }
+                                                            };
+                                                            
+                                                            var sendPdfJson = System.Text.Json.JsonSerializer.Serialize(sendPdfBody);
+                                                            var sendPdfReq = new HttpRequestMessage(HttpMethod.Post, url);
+                                                            sendPdfReq.Headers.Add("Authorization", $"Bearer {token}");
+                                                            sendPdfReq.Content = new StringContent(sendPdfJson, System.Text.Encoding.UTF8, "application/json");
+                                                            var sendPdfResp = await httpClient.SendAsync(sendPdfReq);
+                                                            var sendPdfRespContent = await sendPdfResp.Content.ReadAsStringAsync();
+                                                            Console.WriteLine($"PDF enviado a {waId}. Respuesta: {sendPdfRespContent}");
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"Advertencia: No se encontró el PDF {pdfPath}");
+                                                    }
+                                                }
+                                                catch (Exception pdfEx)
+                                                {
+                                                    Console.WriteLine($"Error enviando PDF: {pdfEx.Message}");
+                                                }
                                             }
                                         }
                                         catch (Exception ex)
