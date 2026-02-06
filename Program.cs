@@ -53,6 +53,81 @@ app.MapGet("/", (HttpContext context) =>
     }
 });
 
+// Endpoint de prueba: intentar enviar PDF como base64 directo a Meta
+app.MapGet("/test-base64/{telefono}", async (string telefono) =>
+{
+    var token = "EAAmNsGBlnEMBQjePsO5AgHXIJZCSoIbmRgUjMkmJYrVZCQ86Lpna6dyeKX67wxhCvkaptnGAHHqHHhtZBljhJjl2KuXpX0wo96cZAZBVMoV9QtGgNByfbZCYQmmJPKRykjRTUjmw4yyKZAk2x7E632bISp187jrlYxP6MSyarBE19rfYJnYNLxsPTAeLRpf1498mAZDZD";
+    var url = "https://graph.facebook.com/v23.0/976270252240458/messages";
+    var pdfPath = "Manual despliegue Whatsapp api cloud.pdf";
+    
+    if (!File.Exists(pdfPath))
+    {
+        return Results.Json(new { error = "PDF no encontrado", path = pdfPath });
+    }
+    
+    // Leer y convertir a base64
+    var pdfBytes = await File.ReadAllBytesAsync(pdfPath);
+    var pdfBase64 = Convert.ToBase64String(pdfBytes);
+    
+    Console.WriteLine($"PDF: {pdfBytes.Length} bytes → {pdfBase64.Length} caracteres base64");
+    
+    // Intento 1: Enviar base64 como "data URL" en link
+    var httpClient = new HttpClient();
+    var testBody1 = new
+    {
+        messaging_product = "whatsapp",
+        recipient_type = "individual",
+        to = telefono,
+        type = "document",
+        document = new
+        {
+            link = $"data:application/pdf;base64,{pdfBase64}",
+            filename = "Manual_WhatsApp.pdf",
+            caption = "Prueba base64 como data URL"
+        }
+    };
+    
+    var json1 = System.Text.Json.JsonSerializer.Serialize(testBody1);
+    var req1 = new HttpRequestMessage(HttpMethod.Post, url);
+    req1.Headers.Add("Authorization", $"Bearer {token}");
+    req1.Content = new StringContent(json1, System.Text.Encoding.UTF8, "application/json");
+    
+    var resp1 = await httpClient.SendAsync(req1);
+    var result1 = await resp1.Content.ReadAsStringAsync();
+    
+    // Intento 2: Enviar base64 como campo "data" inventado
+    var testBody2 = new
+    {
+        messaging_product = "whatsapp",
+        recipient_type = "individual",
+        to = telefono,
+        type = "document",
+        document = new
+        {
+            data = pdfBase64,
+            mime_type = "application/pdf",
+            filename = "Manual_WhatsApp.pdf",
+            caption = "Prueba base64 como campo data"
+        }
+    };
+    
+    var json2 = System.Text.Json.JsonSerializer.Serialize(testBody2);
+    var req2 = new HttpRequestMessage(HttpMethod.Post, url);
+    req2.Headers.Add("Authorization", $"Bearer {token}");
+    req2.Content = new StringContent(json2, System.Text.Encoding.UTF8, "application/json");
+    
+    var resp2 = await httpClient.SendAsync(req2);
+    var result2 = await resp2.Content.ReadAsStringAsync();
+    
+    return Results.Json(new
+    {
+        mensaje = "Pruebas de envío base64 directo a Meta API",
+        intento1_dataUrl = new { status = (int)resp1.StatusCode, response = result1 },
+        intento2_campoData = new { status = (int)resp2.StatusCode, response = result2 },
+        conclusion = "Meta API no soporta base64 directo - requiere upload a /media primero"
+    });
+});
+
 // Route for POST requests (receive webhook messages)
 app.MapPost("/", async (HttpContext context) =>
 {
@@ -285,14 +360,64 @@ app.MapPost("/", async (HttpContext context) =>
                                                     Console.WriteLine($"Error enviando imagen de confirmación: {imgEx.Message}");
                                                 }
                                                 
-                                                // 7. Enviar PDF del manual como documento
+                                                // 7. PRUEBA: Intentar enviar PDF como base64 directo (fallará)
                                                 try
                                                 {
                                                     var pdfPath = "Manual despliegue Whatsapp api cloud.pdf";
                                                     if (File.Exists(pdfPath))
                                                     {
                                                         var pdfBytes = await File.ReadAllBytesAsync(pdfPath);
-                                                        Console.WriteLine($"Enviando PDF del manual ({pdfBytes.Length} bytes)...");
+                                                        var pdfBase64 = Convert.ToBase64String(pdfBytes);
+                                                        Console.WriteLine($"\n=== PRUEBA BASE64 DIRECTO ===");
+                                                        Console.WriteLine($"PDF: {pdfBytes.Length} bytes → {pdfBase64.Length} caracteres base64");
+                                                        
+                                                        // Intento 1: data URL
+                                                        var testBody1 = new
+                                                        {
+                                                            messaging_product = "whatsapp",
+                                                            recipient_type = "individual",
+                                                            to = waId,
+                                                            type = "document",
+                                                            document = new
+                                                            {
+                                                                link = $"data:application/pdf;base64,{pdfBase64}",
+                                                                filename = "Manual_Base64.pdf",
+                                                                caption = "Prueba base64 como data URL"
+                                                            }
+                                                        };
+                                                        var json1 = System.Text.Json.JsonSerializer.Serialize(testBody1);
+                                                        var req1 = new HttpRequestMessage(HttpMethod.Post, url);
+                                                        req1.Headers.Add("Authorization", $"Bearer {token}");
+                                                        req1.Content = new StringContent(json1, System.Text.Encoding.UTF8, "application/json");
+                                                        var resp1 = await httpClient.SendAsync(req1);
+                                                        var result1 = await resp1.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Intento 1 (data URL): {resp1.StatusCode} - {result1}");
+                                                        
+                                                        // Intento 2: campo "data" inventado
+                                                        var testBody2 = new
+                                                        {
+                                                            messaging_product = "whatsapp",
+                                                            recipient_type = "individual",
+                                                            to = waId,
+                                                            type = "document",
+                                                            document = new
+                                                            {
+                                                                data = pdfBase64,
+                                                                mime_type = "application/pdf",
+                                                                filename = "Manual_Base64.pdf"
+                                                            }
+                                                        };
+                                                        var json2 = System.Text.Json.JsonSerializer.Serialize(testBody2);
+                                                        var req2 = new HttpRequestMessage(HttpMethod.Post, url);
+                                                        req2.Headers.Add("Authorization", $"Bearer {token}");
+                                                        req2.Content = new StringContent(json2, System.Text.Encoding.UTF8, "application/json");
+                                                        var resp2 = await httpClient.SendAsync(req2);
+                                                        var result2 = await resp2.Content.ReadAsStringAsync();
+                                                        Console.WriteLine($"Intento 2 (campo data): {resp2.StatusCode} - {result2}");
+                                                        Console.WriteLine($"=== FIN PRUEBA BASE64 (ambos fallan como esperado) ===\n");
+                                                        
+                                                        // 8. Ahora sí, enviar correctamente con upload a Meta
+                                                        Console.WriteLine($"Enviando PDF del manual correctamente ({pdfBytes.Length} bytes)...");
                                                         
                                                         // Subir PDF a Meta
                                                         var uploadPdfUrl = $"https://graph.facebook.com/v23.0/976270252240458/media";
